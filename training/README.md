@@ -126,3 +126,11 @@ The model-only `wb_task=sonic_latent66` preset selects this model, disables FK, 
 SONIC loss excludes temporal/dimension padding, averages valid dimensions equally, and logs `sonic_latent_flow_mse` and `dex1_flow_mse` (unweighted normalized flow-target errors, not decoded physical errors). All-padding samples contribute zero. Inference returns `[H,66]`; denormalization and splitting for the existing SONIC/Dex1 controller are downstream work.
 
 From the repository root, run `PYTHONPATH=training/src python -m unittest discover -s training/tests -v`. For an explicitly allocated A100, source `training/scripts/load_env.sh` in the training environment and run `python scripts/smoke_sonic_latent.py --checkpoint "$WBWAM_MIDTRAIN_CHECKPOINT" --report /path/to/smoke.json` from `training/`. Set `CUDA_VISIBLE_DEVICES` to that A100. This synthetic BF16 smoke performs full checkpoint migration, one forward/backward pass without an optimizer step, and two first-frame-conditioned sampling steps; it does not establish task success or hardware readiness.
+
+## TensorBoard
+
+Add `tensorboard.enabled=true` to training overrides. Only rank zero writes training/evaluation scalars to `<output_dir>/tensorboard`, independently of W&B. Run the following on the training server and forward port 6006 over SSH to view locally.
+
+```bash
+tensorboard --logdir "$WBWAM_RUNS_ROOT" --host 127.0.0.1 --port 6006
+```

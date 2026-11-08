@@ -199,6 +199,7 @@ class Trainer:
             self.train_hooks.append(self.training_dynamics)
         self.optimizer.zero_grad(set_to_none=True)
         self.wandb_run = None
+        self.tensorboard_writer = None
         self._resume_training_state()
 
         val_size = len(self.val_dataset) if self.val_dataset is not None else len(self.train_dataset)
@@ -261,7 +262,34 @@ class Trainer:
             self.cfg.wandb.name,
         )
 
+    def _init_tensorboard(self):
+        if not self.accelerator.is_main_process or not bool(
+            OmegaConf.select(self.cfg, "tensorboard.enabled", default=False)
+        ):
+            return
+        from torch.utils.tensorboard import SummaryWriter
+
+        log_dir = Path(self.output_dir) / "tensorboard"
+        self.tensorboard_writer = SummaryWriter(
+            log_dir=str(log_dir),
+            purge_step=self.global_step if self.global_step > 0 else None,
+            flush_secs=10,
+        )
+        logger.info("TensorBoard log directory: %s", log_dir)
+
+    def _finish_tensorboard(self):
+        if self.tensorboard_writer is not None:
+            self.tensorboard_writer.close()
+            self.tensorboard_writer = None
+
     def _wandb_log(self, payload: dict):
+        if self.tensorboard_writer is not None:
+            for key, value in payload.items():
+                if isinstance(value, (int, float)) or (
+                    torch.is_tensor(value) and value.numel() == 1
+                ):
+                    self.tensorboard_writer.add_scalar(key, value, self.global_step)
+            self.tensorboard_writer.flush()
         if self.wandb_run is None:
             return
         self.wandb_run.log(payload, step=self.global_step)
@@ -787,6 +815,7 @@ class Trainer:
         # multithreaded rank-0 process. persistent_workers keeps later epochs fork-free.
         data_iter = iter(self.train_loader)
         self._init_wandb()
+        self._init_tensorboard()
         if self.eval_at_start and self.val_dataset is not None:
             self._evaluate_and_log()
         self.speed_window = deque([(self.global_step, time.perf_counter())], maxlen=51)

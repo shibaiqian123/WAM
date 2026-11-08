@@ -126,3 +126,11 @@ bash scripts/train_zero2.sh 8 "wb_task=posttrain/humanoid_arena_native50/$TASK" 
 SONIC 损失排除时间与维度 padding，有效维度等权；记录 `sonic_latent_flow_mse` 和 `dex1_flow_mse`，它们是未加调度权重的归一化 flow 目标误差，不是解码后的物理误差。全 padding 样本贡献零。推理返回 `[H,66]`；反归一化和 SONIC／Dex1 控制接入属于后续工作。
 
 仓库根目录运行 `PYTHONPATH=training/src python -m unittest discover -s training/tests -v`。已明确分配 A100 后，在训练环境的 `training/` 下加载 `source scripts/load_env.sh`，设置该卡的 `CUDA_VISIBLE_DEVICES`，运行 `python scripts/smoke_sonic_latent.py --checkpoint "$WBWAM_MIDTRAIN_CHECKPOINT" --report /path/to/smoke.json`。该 BF16 合成检查执行完整权重迁移、一次前向／反向（无优化器更新）和两步首帧条件采样，不代表任务成功或真机就绪。
+
+## TensorBoard
+
+训练命令增加 `tensorboard.enabled=true`。仅主进程向 `<output_dir>/tensorboard` 写入训练和验证标量，不依赖 W&B。在训练服务器运行以下命令，通过 SSH 转发 6006 端口后在本地查看。
+
+```bash
+tensorboard --logdir "$WBWAM_RUNS_ROOT" --host 127.0.0.1 --port 6006
+```

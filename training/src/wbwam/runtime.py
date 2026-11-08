@@ -598,7 +598,11 @@ def run_training(cfg: DictConfig):
             sharding_metadata=sharding_metadata,
         )
         logger.info("Trainer ready. Starting training loop.")
-        trainer.train()
+        try:
+            trainer.train()
+        finally:
+            trainer._finish_tensorboard()
+            trainer._finish_wandb()
     finally:
         if torch.distributed.is_available() and torch.distributed.is_initialized():
             torch.distributed.destroy_process_group()

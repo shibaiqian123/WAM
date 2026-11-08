@@ -66,3 +66,7 @@ hydra:
   run:
     dir: .
   output_subdir: null
+
+# Local scalar logs written only by the main process.
+tensorboard:
+  enabled: false
