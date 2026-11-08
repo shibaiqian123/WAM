@@ -48,7 +48,22 @@ def diagnostic_init(self, *args, **kwargs):
                     check(f"before_optimizer/param/{gi}/{pi}", param)
                     if param.grad is not None:
                         check(f"before_optimizer/grad/{gi}/{pi}", param.grad)
+            for group in optimizer.param_groups:
+                print("DIAG optimizer options", {k:v for k,v in group.items() if k != "params"}, flush=True)
+                for param in group["params"]:
+                    print("DIAG param", param.dtype, param.numel(), "grad range",
+                          float(param.grad.min()), float(param.grad.max()), flush=True)
+                    for key, value in optimizer.state[param].items():
+                        if torch.is_tensor(value):
+                            print("DIAG state before", key, value.dtype, value.numel(),
+                                  float(value.min()), float(value.max()), flush=True)
             result = original_step(*a, **kw)
+            for group in optimizer.param_groups:
+                for param in group["params"]:
+                    for key, value in optimizer.state[param].items():
+                        if torch.is_tensor(value):
+                            print("DIAG state after", key, value.dtype, value.numel(),
+                                  float(value.min()), float(value.max()), flush=True)
             for gi, group in enumerate(optimizer.param_groups):
                 for pi, param in enumerate(group["params"]):
                     check(f"after_optimizer/param/{gi}/{pi}", param)
