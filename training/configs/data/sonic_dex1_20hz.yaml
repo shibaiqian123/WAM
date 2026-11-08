@@ -1,0 +1,50 @@
+defaults:
+  - wb
+  - _self_
+
+dataset_format: official_lerobot_v3_1
+raw_state_dim: 31
+raw_action_dim: 66
+state_dim: 31
+action_dim: 66
+proprio_dim: 31
+action_target_dim: 66
+state_key: observation.sonic_state
+action_key: action
+state_mask_key: null
+action_mask_key: null
+state_slices: null
+action_slices: null
+model_dim_indices: null
+state_model_dim_indices: null
+action_model_dim_indices: null
+action_representation: native
+relative_joint_ranges: []
+relative_action_reference: observation
+num_frames: 33
+action_video_freq_ratio: 4
+camera_key: observation.images.ego_view
+val_set_proportion: 0.1
+stats_downsample_rate: 1
+# Preserve the continuous label range using train-only extrema.
+norm_default_mode: min/max
+return_fk_targets: false
+strict_video_decode: true
+pretrained_norm_stats: ${oc.env:WBWAM_SONIC_DATA_ROOT,./data/block_into_cup_v1_1_dex1_wbwam_20hz_s31_a66}/meta/dataset_stats.json
+text_embedding_cache_dir: ${oc.env:WBWAM_SONIC_DATA_ROOT,./data/block_into_cup_v1_1_dex1_wbwam_20hz_s31_a66}/text_embeds_cache
+text_embedding_cache_suffix: sonic31_latent66_20hz_v1
+include_robot_metadata_in_prompt: false
+archives: null
+datasets:
+  - name: block_into_cup_sonic31_latent66_20hz
+    root: ${oc.env:WBWAM_SONIC_DATA_ROOT,./data/block_into_cup_v1_1_dex1_wbwam_20hz_s31_a66}
+    weight: 1.0
+    val_split_mode: sequential
+    instruction:
+      visual_description: >-
+        The video is recorded from the ego-view camera of a Unitree G1 robot
+        with a left Dex1 gripper and a right Dex1 gripper.
+      control_description: >-
+        The predicted action contains a sixty-four-dimensional SONIC motion
+        latent for whole-body control followed by the continuous left and right
+        Dex1 gripper target positions in motor output radians, at twenty hertz.

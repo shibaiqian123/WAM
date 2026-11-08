@@ -1,0 +1,22 @@
+# @package _global_
+defaults:
+  - /wb_task/_base/posttrain
+  - override /data: sonic_dex1_20hz
+  - override /model: sonic_latent66
+  - _self_
+
+posttrain_task: block_into_cup_sonic31_latent66_20hz
+batch_size: 1
+num_workers: 4
+resume: null
+init_from_checkpoint: ${oc.env:WBWAM_MIDTRAIN_CHECKPOINT}
+fk_link_loss:
+  enabled: false
+data:
+  archives: null
+  val_set_proportion: 0.1
+  stats_downsample_rate: 1
+  return_fk_targets: false
+wandb:
+  enabled: false
+  mode: offline
