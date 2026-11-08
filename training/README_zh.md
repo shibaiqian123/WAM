@@ -114,3 +114,15 @@ bash scripts/train_zero2.sh 8 "wb_task=posttrain/humanoid_arena_native50/$TASK" 
 ```
 
 其余任务：`kick_football`、`box_shelf`、`punch_markers`、`open_door`、`sit_sofa`、`obstacle_navigation`。
+
+## SONIC latent 接口（仅模型验证）
+
+使用 `model=sonic_latent66`，状态原生 31 维，动作原生 66 维。状态依次为 `observation.sonic_state` 的 29 个身体关节、左 Dex1、右 Dex1；动作依次为 64 维 SONIC motion token、左右 Dex1 连续目标。输入输出使用训练归一化空间，不增加 Root、不二值化夹爪、不经过 SONIC Encoder。保留视频／动作联合建模，官方物理动作配置保持原样。
+
+`wb_task=sonic_latent66` 是仅模型配置：选择新模型、关闭 FK、从 `WBWAM_MIDTRAIN_CHECKPOINT` 初始化，尚未提供数据集。数据转换、统计量和语言缓存需另行准备，不能直接接入未适配的物理动作数据集。
+
+`init_from_checkpoint` 与 `resume` 互斥。从物理动作 midtrain 初始化时严格保留完整兼容主干，只以种子 42 重建动作输入／输出和状态投影（包含偏置），不恢复旧优化器和步数。新的 SONIC checkpoint 保存接口契约并严格恢复；普通 resume 不接受物理动作权重。完整初始化前禁止训练／推理，此路径不需要单独生成 ActionDiT 初始化文件。
+
+SONIC 损失排除时间与维度 padding，有效维度等权；记录 `sonic_latent_flow_mse` 和 `dex1_flow_mse`，它们是未加调度权重的归一化 flow 目标误差，不是解码后的物理误差。全 padding 样本贡献零。推理返回 `[H,66]`；反归一化和 SONIC／Dex1 控制接入属于后续工作。
+
+仓库根目录运行 `PYTHONPATH=training/src python -m unittest discover -s training/tests -v`。已明确分配 A100 后，在训练环境的 `training/` 下加载 `source scripts/load_env.sh`，设置该卡的 `CUDA_VISIBLE_DEVICES`，运行 `python scripts/smoke_sonic_latent.py --checkpoint "$WBWAM_MIDTRAIN_CHECKPOINT" --report /path/to/smoke.json`。该 BF16 合成检查执行完整权重迁移、一次前向／反向（无优化器更新）和两步首帧条件采样，不代表任务成功或真机就绪。

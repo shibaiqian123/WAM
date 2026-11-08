@@ -1,0 +1,11 @@
+# @package _global_
+defaults:
+  - override /model: sonic_latent66
+  - _self_
+
+# Model-only preset: supply a converted dataset in a later task.
+init_from_checkpoint: ${oc.env:WBWAM_MIDTRAIN_CHECKPOINT}
+resume: null
+seed: 42
+fk_link_loss:
+  enabled: false

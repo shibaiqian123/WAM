@@ -69,6 +69,9 @@ class Trainer:
         self.seed = int(cfg.seed)
 
         self.resume = cfg.resume
+        self.init_from_checkpoint = OmegaConf.select(cfg, "init_from_checkpoint", default=None)
+        if self.resume and self.init_from_checkpoint:
+            raise ValueError("init_from_checkpoint and resume are mutually exclusive")
         self.mixed_precision = str(cfg.mixed_precision).strip().lower()
         if self.mixed_precision not in {"no", "fp16", "bf16"}:
             raise ValueError(
@@ -373,6 +376,9 @@ class Trainer:
         return f"{eta_h:02d}:{eta_m:02d}:{eta_s:02d}", steps_per_sec
 
     def _load_weight_checkpoint(self):
+        if self.init_from_checkpoint:
+            self.model.initialize_from_checkpoint(str(self.init_from_checkpoint))
+            return
         resume = self.resume
         if not resume:
             return

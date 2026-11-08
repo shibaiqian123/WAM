@@ -1,0 +1,14 @@
+defaults:
+  - wbwam_optional_idm
+  - _self_
+
+_target_: wbwam.models.wan22.sonic_latent.create_sonic_latent
+proprio_dim: 31
+skip_dit_load_from_pretrain: true
+action_dit_pretrained_path: null
+compile_training_denoise: false
+mot_checkpoint_mixed_attn: true
+video_dit_config:
+  action_dim: 66
+action_dit_config:
+  action_dim: 66

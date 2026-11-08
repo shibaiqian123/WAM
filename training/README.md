@@ -114,3 +114,15 @@ bash scripts/train_zero2.sh 8 "wb_task=posttrain/humanoid_arena_native50/$TASK" 
 ```
 
 The other tasks are `kick_football`, `box_shelf`, `punch_markers`, `open_door`, `sit_sofa`, and `obstacle_navigation`.
+
+## SONIC latent interface (model validation only)
+
+Use `model=sonic_latent66` for native 31D state and 66D action. State order is the 29 body joints from `observation.sonic_state`, left Dex1, right Dex1. Action order is the 64D SONIC motion token, left Dex1 target, right Dex1 target. Values use training normalization; no Root channels, binary gripper conversion, or SONIC Encoder are introduced. Video/action modeling is retained. The physical-action presets are unchanged.
+
+The model-only `wb_task=sonic_latent66` preset selects this model, disables FK, and initializes from `WBWAM_MIDTRAIN_CHECKPOINT`. It intentionally supplies no dataset: conversion, normalization statistics, and language caches remain separate work. Do not launch it with an unadapted physical-action dataset.
+
+`init_from_checkpoint` and `resume` are mutually exclusive. Physical 96D midtrain initialization strictly preserves the complete compatible backbone and resets only the action input/output and state projections (including biases), using seed 42. No old optimizer or step is restored. SONIC checkpoints carry their interface contract and reload strictly; physical weights cannot be passed to ordinary SONIC resume. Complete initialization is required before training/inference. A separate ActionDiT initialization file is unnecessary with this full midtrain path.
+
+SONIC loss excludes temporal/dimension padding, averages valid dimensions equally, and logs `sonic_latent_flow_mse` and `dex1_flow_mse` (unweighted normalized flow-target errors, not decoded physical errors). All-padding samples contribute zero. Inference returns `[H,66]`; denormalization and splitting for the existing SONIC/Dex1 controller are downstream work.
+
+From the repository root, run `PYTHONPATH=training/src python -m unittest discover -s training/tests -v`. For an explicitly allocated A100, source `training/scripts/load_env.sh` in the training environment and run `python scripts/smoke_sonic_latent.py --checkpoint "$WBWAM_MIDTRAIN_CHECKPOINT" --report /path/to/smoke.json` from `training/`. Set `CUDA_VISIBLE_DEVICES` to that A100. This synthetic BF16 smoke performs full checkpoint migration, one forward/backward pass without an optimizer step, and two first-frame-conditioned sampling steps; it does not establish task success or hardware readiness.
