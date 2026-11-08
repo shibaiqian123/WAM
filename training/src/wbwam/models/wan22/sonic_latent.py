@@ -24,6 +24,15 @@ class WBWAMSonicLatent(WBWAMOptionalIDM):
         self._sonic_ready = False
         self._sonic_metrics = {}
 
+    @property
+    def checkpoint_contract(self):
+        return copy.deepcopy(CONTRACT)
+
+    def complete_training_state_restore(self, contract):
+        if contract != CONTRACT:
+            raise ValueError("SONIC training-state contract mismatch")
+        self._sonic_ready = True
+
     def _require_ready(self):
         if not self._sonic_ready:
             raise RuntimeError("Load a complete SONIC checkpoint or initialize from physical midtrain first")

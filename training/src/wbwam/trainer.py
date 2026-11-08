@@ -670,6 +670,10 @@ class Trainer:
             "shard_group_size": int(self.sharding_metadata["shard_group_size"]),
             "num_bins": int(self.sharding_metadata["num_bins"]),
         }
+        model = self.accelerator.unwrap_model(self.model)
+        contract = getattr(model, "checkpoint_contract", None)
+        if contract is not None:
+            payload["model_contract"] = contract
         with open(state_file, "w", encoding="utf-8") as f:
             json.dump(payload, f, ensure_ascii=True, indent=2)
 
@@ -716,6 +720,12 @@ class Trainer:
                 )
 
     def load_training_state(self, state_dir: str):
+        model = self.accelerator.unwrap_model(self.model)
+        contract = getattr(model, "checkpoint_contract", None)
+        if contract is not None:
+            metadata = json.loads((Path(state_dir) / "trainer_state.json").read_text())
+            if metadata.get("model_contract") != contract:
+                raise ValueError("Training-state model contract mismatch")
         self.accelerator.load_state(input_dir=state_dir)
         state_file = Path(state_dir) / "trainer_state.json"
         if state_file.exists():
@@ -745,6 +755,8 @@ class Trainer:
                     "State file does not contain `epoch`/`batch_in_epoch`; "
                     "optimizer/scheduler were restored, but dataloader progress resume is skipped."
                 )
+            if contract is not None:
+                model.complete_training_state_restore(contract)
             self.accelerator.wait_for_everyone()
             return
 

@@ -1,4 +1,6 @@
 import tempfile
+import json
+from unittest.mock import Mock
 import unittest
 from pathlib import Path
 import torch
@@ -76,6 +78,32 @@ class SonicTests(unittest.TestCase):
         for dim in [34,96]:
             with self.assertRaises(ValueError):self.model.infer_action(**{**args,"proprio":torch.zeros(dim)})
         with self.assertRaises(ValueError):self.model._compute_action_loss_per_sample(torch.zeros(1,2,96),torch.zeros(1,2,96),None,None)
+    def test_training_state_contract_and_init_conflict(self):
+        from wbwam.trainer import Trainer
+        trainer=Trainer.__new__(Trainer)
+        trainer.model=self.model
+        trainer.accelerator=Mock()
+        trainer.accelerator.unwrap_model.return_value=self.model
+        trainer._validate_trainer_state=Mock()
+        trainer._set_train_dataset_epoch=Mock()
+        trainer.train_sampler=Mock()
+        trainer.batch_size=1
+        path=Path(self.tmp.name)/"trainer_state.json"
+        payload={"global_step":7,"epoch":1,"batch_in_epoch":2,"model_contract":{"wrong":True}}
+        path.write_text(json.dumps(payload))
+        with self.assertRaises(ValueError):trainer.load_training_state(self.tmp.name)
+        trainer.accelerator.load_state.assert_not_called()
+        payload["model_contract"]=CONTRACT
+        path.write_text(json.dumps(payload))
+        trainer.load_training_state(self.tmp.name)
+        self.assertTrue(self.model._sonic_ready)
+        self.assertEqual(trainer.global_step,7)
+        root=Path(__file__).resolve().parents[1]/"configs"
+        with initialize_config_dir(config_dir=str(root),version_base=None):
+            cfg=compose(config_name="train",overrides=["resume=old.pt","init_from_checkpoint=midtrain.pt"])
+            with self.assertRaisesRegex(ValueError,"mutually exclusive"):
+                Trainer(self.model,[],cfg=cfg)
+
     def test_configs(self):
         root=Path(__file__).resolve().parents[1]/"configs"
         with initialize_config_dir(config_dir=str(root),version_base=None):
