@@ -268,3 +268,7 @@ vla_baseline/psi0/src/egovla/VILA/llava/model/utils/utils.py
 # Robot-local head servo configuration and native build products
 /collector/sonic/scripts/head_servo.env
 /collector/sonic/head/build/
+
+
+#数据集
+/data/sonic_datasets/
