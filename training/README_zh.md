@@ -134,3 +134,5 @@ SONIC 损失排除时间与维度 padding，有效维度等权；记录 `sonic_l
 ```bash
 tensorboard --logdir "$WBWAM_RUNS_ROOT" --host 127.0.0.1 --port 6006
 ```
+
+SONIC 任务预设设置 `optimizer_foreach=false`。在已测试的 PyTorch 2.7.1 + CUDA 12.8 环境中，默认 foreach AdamW 在含 3,008,932,864 个 FP32 元素的 ZeRO 分片上产生负二阶动量与 NaN 参数；单张量 AdamW 通过同规模独立测试。训练损失出现非有限值时，所有进程会在反向传播前停止。NaN 运行应从干净权重重新开始。

@@ -20,3 +20,6 @@ data:
 wandb:
   enabled: false
   mode: offline
+
+# Avoid non-finite AdamW updates on large ZeRO flat partitions in torch 2.7.1.
+optimizer_foreach: false

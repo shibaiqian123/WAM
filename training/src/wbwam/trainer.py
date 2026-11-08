@@ -158,6 +158,7 @@ class Trainer:
         self.optimizer = torch.optim.AdamW(
             param_groups,
             betas=(0.9, 0.95),
+            foreach=OmegaConf.select(cfg, "optimizer_foreach", default=None),
         )
 
         self.train_loader = self._build_loader(self.train_dataset, worker_init_fn=worker_init_fn)
@@ -860,6 +861,15 @@ class Trainer:
                 with self.accelerator.autocast():
                     loss, loss_dict = train_model.training_loss(sample)
                 hook_step.forward_end()
+                # All ranks must stop together before backward collectives.
+                finite_ranks = self.accelerator.reduce(
+                    torch.isfinite(loss.detach()).to(dtype=torch.int32), reduction="sum"
+                )
+                if finite_ranks.item() != self.accelerator.num_processes:
+                    raise FloatingPointError(
+                        f"Non-finite loss before backward at update {self.global_step + 1}; "
+                        "stop and diagnose rather than updating or saving corrupted weights."
+                    )
                 self.accelerator.backward(loss)
 
                 if self.accelerator.sync_gradients:

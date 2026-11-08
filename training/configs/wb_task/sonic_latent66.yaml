@@ -9,3 +9,6 @@ resume: null
 seed: 42
 fk_link_loss:
   enabled: false
+
+# Avoid non-finite AdamW updates on large ZeRO flat partitions in torch 2.7.1.
+optimizer_foreach: false

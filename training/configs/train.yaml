@@ -70,3 +70,6 @@ hydra:
 # Local scalar logs written only by the main process.
 tensorboard:
   enabled: false
+
+# null keeps PyTorch automatic selection; false uses single-tensor AdamW.
+optimizer_foreach: null

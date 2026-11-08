@@ -80,6 +80,7 @@ if __name__ == "__main__":
     register_default_resolvers()
     cfg = OmegaConf.load(args.config)
     cfg.output_dir = args.output
+    cfg.optimizer_foreach = False
     cfg.max_steps = 2
     cfg.log_every = 1
     cfg.save_every = 0
