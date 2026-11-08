@@ -73,3 +73,5 @@ tensorboard:
 
 # null keeps PyTorch automatic selection; false uses single-tensor AdamW.
 optimizer_foreach: null
+
+optimizer_max_group_numel: null

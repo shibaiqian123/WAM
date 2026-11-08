@@ -12,3 +12,4 @@ fk_link_loss:
 
 # Avoid non-finite AdamW updates on large ZeRO flat partitions in torch 2.7.1.
 optimizer_foreach: false
+optimizer_max_group_numel: 500000000

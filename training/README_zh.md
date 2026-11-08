@@ -136,3 +136,5 @@ tensorboard --logdir "$WBWAM_RUNS_ROOT" --host 127.0.0.1 --port 6006
 ```
 
 SONIC 任务预设设置 `optimizer_foreach=false`。在已测试的 PyTorch 2.7.1 + CUDA 12.8 环境中，默认 foreach AdamW 在含 3,008,932,864 个 FP32 元素的 ZeRO 分片上产生负二阶动量与 NaN 参数；单张量 AdamW 通过同规模独立测试。训练损失出现非有限值时，所有进程会在反向传播前停止。NaN 运行应从干净权重重新开始。
+
+SONIC 同时把 ZeRO 分片前的每个优化器参数组限制为 5 亿元素，以控制单张量 AdamW 临时显存。参数顺序、各参数的学习率与权重衰减保持不变。优化器状态分组发生变化，应启动新运行，不要恢复旧分组的完整训练状态。

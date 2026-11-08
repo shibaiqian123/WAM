@@ -136,3 +136,5 @@ tensorboard --logdir "$WBWAM_RUNS_ROOT" --host 127.0.0.1 --port 6006
 ```
 
 SONIC task presets set `optimizer_foreach=false`. On the tested PyTorch 2.7.1 + CUDA 12.8 environment, default foreach AdamW produced negative second moments and NaN parameters for a 3,008,932,864-element FP32 ZeRO partition; single-tensor AdamW passed the same isolated test. A non-finite training loss now stops all ranks before backward. Restart failed NaN runs from clean weights.
+
+SONIC also caps optimizer groups at 500 million elements before ZeRO partitioning to bound single-tensor AdamW temporary memory. Parameter order and per-parameter learning rate/weight decay are preserved. This changes optimizer-state grouping: start a fresh run, and do not resume old full training states with a different grouping.

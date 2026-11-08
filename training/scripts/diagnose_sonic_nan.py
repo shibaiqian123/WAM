@@ -81,6 +81,7 @@ if __name__ == "__main__":
     cfg = OmegaConf.load(args.config)
     cfg.output_dir = args.output
     cfg.optimizer_foreach = False
+    cfg.optimizer_max_group_numel = 500000000
     cfg.max_steps = 2
     cfg.log_every = 1
     cfg.save_every = 0

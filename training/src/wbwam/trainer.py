@@ -33,6 +33,30 @@ def _configure_deepspeed_gradient_clipping(deepspeed_plugin, *, max_grad_norm: f
     deepspeed_plugin.deepspeed_config["gradient_clipping"] = max_grad_norm
 
 
+def _split_optimizer_param_groups(groups, max_numel):
+    """Bound ZeRO flat partitions without changing per-parameter hyperparameters."""
+    if max_numel is None:
+        return groups
+    max_numel = int(max_numel)
+    if max_numel <= 0:
+        raise ValueError("optimizer_max_group_numel must be positive")
+    result = []
+    for group in groups:
+        params, count = [], 0
+        for param in group["params"]:
+            size = param.numel()
+            if size > max_numel:
+                raise ValueError("A parameter exceeds optimizer_max_group_numel")
+            if params and count + size > max_numel:
+                result.append({**group, "params": params})
+                params, count = [], 0
+            params.append(param)
+            count += size
+        if params:
+            result.append({**group, "params": params})
+    return result
+
+
 class Trainer:
     def __init__(
         self,
@@ -149,7 +173,10 @@ class Trainer:
 
         # ZeRO creates FP32 master parameters during prepare; load warm-start weights first.
         self._load_weight_checkpoint()
-        param_groups = self._build_param_groups()
+        param_groups = _split_optimizer_param_groups(
+            self._build_param_groups(),
+            OmegaConf.select(cfg, "optimizer_max_group_numel", default=None),
+        )
         if self.accelerator.is_main_process:
             total_trainable_params = sum(
                 param.numel() for group in param_groups for param in group["params"] if param.requires_grad
