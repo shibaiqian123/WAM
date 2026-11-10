@@ -1,6 +1,7 @@
 from typing import Any, Optional, Sequence, Union
 
 import numpy as np
+import os
 from PIL import Image
 import torch
 import torch.nn as nn
@@ -642,6 +643,10 @@ class WBWAM(torch.nn.Module):
         """
         if tiled:
             raise NotImplementedError("Batched VAE encoding does not support tiled encoding.")
+        if os.environ.get("WBWAM_DISABLE_VAE_COMPILE", "0") == "1":
+            return self.vae.model.encode(
+                video_tensor.to(self.device), self.vae.scale
+            ).clone()
         if not hasattr(self, "_vae_encode_compiled"):
             self._vae_encode_compiled = torch.compile(
                 self.vae.model.encode,
