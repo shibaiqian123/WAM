@@ -12,6 +12,13 @@ resume: null
 init_from_checkpoint: ${oc.env:WBWAM_MIDTRAIN_CHECKPOINT}
 fk_link_loss:
   enabled: false
+sonic_eef_loss:
+  enabled: true
+  lambda_fk: 0.05
+  beta_rot: 0.1
+  position_weight: 1.0
+  checkpoint: ${oc.env:WBWAM_SONIC_DECODER_CHECKPOINT,/share/2025slx/DIT4DIT/sonic_ckpt/sonic_v1_1/last.pt}
+  sonic_root: ${oc.env:WBWAM_SONIC_ROOT,/share/2025slx/WAM/training/checkpoints/sonic_fk_assets}
 data:
   archives: null
   val_set_proportion: 0.1

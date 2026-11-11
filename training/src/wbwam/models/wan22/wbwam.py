@@ -1126,6 +1126,29 @@ class WBWAM(torch.nn.Module):
         loss_dict.update(metrics)
         return loss_total + loss_fk, loss_dict
 
+    def _add_sonic_eef_training_loss(
+        self,
+        loss_total,
+        loss_dict,
+        *,
+        action_target,
+        pred_flow,
+        noisy_action,
+        timestep_action,
+        action_dim_is_pad,
+    ):
+        """Add decoded SONIC FK supervision to the 31->66 flow objective."""
+        auxiliary = getattr(self, "sonic_eef_loss", None)
+        if auxiliary is None or auxiliary.weight == 0:
+            return loss_total, loss_dict
+        sigma = timestep_action.float() / float(self.train_action_scheduler.num_train_timesteps)
+        clean_action = noisy_action.float() - sigma[:, None, None] * pred_flow.float()
+        metrics = auxiliary(clean_action, action_target, action_dim_is_pad)
+        loss_dict["loss_fk_position"] = float(metrics["position_m2"].detach().item())
+        loss_dict["loss_fk_rotation"] = float(metrics["rotation_rad2"].detach().item())
+        loss_dict["loss_fk_weighted"] = float(metrics["weighted"].detach().item())
+        return loss_total + metrics["weighted"], loss_dict
+
     def training_loss(self, sample, tiled: bool = False):
         """Compute the joint video/action flow-matching training loss for one batch.
 
@@ -1227,7 +1250,7 @@ class WBWAM(torch.nn.Module):
             "loss_video": self.loss_lambda_video * float(loss_video.detach().item()),
             "loss_action": self.loss_lambda_action * float(loss_action.detach().item()),
         }
-        return self._add_fk_training_loss(
+        loss_total, loss_dict = self._add_fk_training_loss(
             loss_total,
             loss_dict,
             sample=sample,
@@ -1236,6 +1259,15 @@ class WBWAM(torch.nn.Module):
             timestep_action=timestep_action,
             action_weight=action_weight,
             action_is_pad=action_is_pad,
+            action_dim_is_pad=action_dim_is_pad,
+        )
+        return self._add_sonic_eef_training_loss(
+            loss_total,
+            loss_dict,
+            action_target=action,
+            pred_flow=pred_action,
+            noisy_action=noisy_action,
+            timestep_action=timestep_action,
             action_dim_is_pad=action_dim_is_pad,
         )
 

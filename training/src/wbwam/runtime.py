@@ -538,6 +538,65 @@ def _attach_fk_link_loss(model, train_dataset, val_dataset, options):
     )
 
 
+def _prepare_sonic_eef_loss_config(cfg: DictConfig):
+    config = cfg.get("sonic_eef_loss")
+    if config is None:
+        return None
+    options = OmegaConf.to_container(config, resolve=True)
+    enabled = bool(options.pop("enabled", False))
+    weight = float(options.get("lambda_fk", 0.05))
+    beta_rot = float(options.get("beta_rot", 0.1))
+    if not math.isfinite(weight) or weight < 0:
+        raise ValueError("sonic_eef_loss.lambda_fk must be finite and non-negative")
+    if not math.isfinite(beta_rot) or beta_rot < 0:
+        raise ValueError("sonic_eef_loss.beta_rot must be finite and non-negative")
+    if not enabled or weight == 0:
+        return None
+    if OmegaConf.select(cfg, "data.action_representation") != "native":
+        raise ValueError("SONIC decoded FK loss requires native action_representation")
+    if int(OmegaConf.select(cfg, "data.action_dim", default=0)) != 66:
+        raise ValueError("SONIC decoded FK loss requires 66D native actions")
+    if int(OmegaConf.select(cfg, "data.state_dim", default=0)) != 31:
+        raise ValueError("SONIC decoded FK loss requires 31D proprioception")
+    options["lambda_fk"] = weight
+    options["beta_rot"] = beta_rot
+    return options
+
+
+def _attach_sonic_eef_loss(model, train_dataset, options):
+    if options is None:
+        return
+    from .models.wan22.wbwam import WBWAM
+    from .models.wan22.sonic_fk.sonic_kinematics import SonicKinematicDecoder
+    from .models.wan22.sonic_eef_loss import SonicEndEffectorLoss
+
+    if not isinstance(model, WBWAM):
+        raise ValueError("SONIC decoded FK loss is only supported by WBWAM")
+    normalizer = getattr(train_dataset, "normalizer", None)
+    if normalizer is None:
+        raise ValueError("SONIC decoded FK loss requires the dataset action normalizer")
+    decoder = SonicKinematicDecoder(
+        options["checkpoint"],
+        options["sonic_root"],
+        device=str(model.device),
+    )
+    model.sonic_eef_loss = SonicEndEffectorLoss(
+        decoder,
+        normalizer,
+        weight=options["lambda_fk"],
+        position_weight=float(options.get("position_weight", 1.0)),
+        rotation_weight=options["beta_rot"],
+    ).to(model.device)
+    logger.info(
+        "Enabled frozen SONIC decoder FK loss: lambda_fk=%s beta_rot=%s "
+        "position_weight=%s decoder_sha256=%s",
+        options["lambda_fk"],
+        options["beta_rot"],
+        options.get("position_weight", 1.0),
+        decoder.metadata["checkpoint_sha256"],
+    )
+
+
 def run_training(cfg: DictConfig):
     try:
         # Resolve topology before Accelerator exists because dataset sharding
@@ -551,6 +610,7 @@ def run_training(cfg: DictConfig):
         )
         misc.register_work_dir(cfg.output_dir)
         fk_options = _prepare_fk_data_config(cfg)
+        sonic_eef_options = _prepare_sonic_eef_loss_config(cfg)
         # Materialize ${oc.load:...} nodes before writing the resolved config.
         OmegaConf.resolve(cfg)
         config_payload = OmegaConf.to_container(cfg, resolve=True)
@@ -567,6 +627,7 @@ def run_training(cfg: DictConfig):
         logger.info("Building datasets...")
         train_ds, val_ds = build_datasets(cfg.data)
         _attach_fk_link_loss(model, train_ds, val_ds, fk_options)
+        _attach_sonic_eef_loss(model, train_ds, sonic_eef_options)
         sharding_metadata = dict(getattr(train_ds, "sharding_metadata", {"enabled": False}))
         sharding_metadata.setdefault("enabled", False)
         if bool(sharding_metadata["enabled"]):
